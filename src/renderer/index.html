@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>zotexport</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <p class="eyebrow">Zotero Read-Only Export</p>
+          <h1>zotexport</h1>
+          <p class="lede">
+            Select a collection or subcollection and export its full hierarchy to a ZIP without writing anything back to Zotero.
+          </p>
+        </div>
+
+        <div class="env-panel">
+          <div class="panel-head">
+            <h2>Detected source</h2>
+            <button id="refresh-button" class="ghost-button">Refresh</button>
+          </div>
+          <dl id="environment-details" class="env-details"></dl>
+          <button id="choose-dir-button" class="secondary-button">Choose data directory</button>
+        </div>
+      </aside>
+
+      <main class="main-panel">
+        <section class="selection-panel">
+          <div class="panel-head">
+            <div>
+              <p class="eyebrow">Collections</p>
+              <h2>Detected tree</h2>
+            </div>
+            <div class="selection-badge" id="selection-badge">No selection</div>
+          </div>
+          <div id="tree-root" class="tree-root"></div>
+        </section>
+
+        <section class="action-panel">
+          <div class="panel-head tight">
+            <div>
+              <p class="eyebrow">Export</p>
+              <h2 id="selected-title">Select a collection</h2>
+            </div>
+          </div>
+
+          <div class="summary-card">
+            <p id="selected-description" class="summary-text">
+              The app will export the selected collection, its child subcollections, and the allowed attachments.
+            </p>
+            <ul class="summary-list" id="selected-summary"></ul>
+          </div>
+
+          <div class="progress-panel">
+            <div class="progress-head">
+              <span id="progress-label">Ready to export</span>
+              <span id="progress-percent">0%</span>
+            </div>
+            <progress id="progress-bar" max="100" value="0"></progress>
+            <p id="progress-meta" class="progress-meta">No export is currently running.</p>
+          </div>
+
+          <div class="actions">
+            <button id="export-button" class="primary-button" disabled>Export ZIP</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <template id="tree-node-template">
+      <button class="tree-node" type="button"></button>
+    </template>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
