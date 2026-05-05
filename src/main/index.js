@@ -6,7 +6,7 @@ const {
   loadCollectionTree,
   findCollectionNode,
 } = require("./zotero");
-const { exportCollectionToZip } = require("./exporter");
+const { exportCollectionToZip, planCollectionExport } = require("./exporter");
 
 let mainWindow = null;
 let manualDataDir = null;
@@ -95,8 +95,28 @@ ipcMain.handle("app:choose-data-dir", async () => {
   };
 });
 
+ipcMain.handle("app:get-export-preview", async (_event, payload) => {
+  const collectionId = Number(payload?.collectionId);
+  const includeSubcollections = payload?.includeSubcollections !== false;
+
+  if (!Number.isInteger(collectionId)) {
+    throw new Error("No valid collection was received for preview.");
+  }
+
+  const state = await buildAppState();
+  const { summary } = await planCollectionExport({
+    environment: state.environment,
+    libraries: state.libraries,
+    collectionId,
+    includeSubcollections,
+  });
+
+  return summary;
+});
+
 ipcMain.handle("app:export-collection", async (_event, payload) => {
   const collectionId = Number(payload?.collectionId);
+  const includeSubcollections = payload?.includeSubcollections !== false;
   if (!Number.isInteger(collectionId)) {
     throw new Error("No valid collection was received for export.");
   }
@@ -121,6 +141,7 @@ ipcMain.handle("app:export-collection", async (_event, payload) => {
     environment: state.environment,
     libraries: state.libraries,
     collectionId,
+    includeSubcollections,
     outputPath: saveDialog.filePath,
     onProgress(progress) {
       mainWindow?.webContents.send("export:progress", progress);

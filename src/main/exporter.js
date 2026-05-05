@@ -53,6 +53,17 @@ function collectSubtree(node) {
   return nodes;
 }
 
+function createScopedRootNode(rootNode, includeSubcollections) {
+  if (includeSubcollections) {
+    return rootNode;
+  }
+
+  return {
+    ...rootNode,
+    children: [],
+  };
+}
+
 function buildDirectoryPlan(rootNode) {
   const directories = [];
   const pathByCollectionId = new Map();
@@ -210,6 +221,42 @@ function buildArchivePlan({ rootNode, attachmentRows, dataDir }) {
   };
 }
 
+async function planCollectionExport({
+  environment,
+  libraries,
+  collectionId,
+  includeSubcollections = true,
+}) {
+  const rootNode = findCollectionNode(libraries, collectionId);
+  if (!rootNode) {
+    throw new Error("The selected collection was not found.");
+  }
+
+  const scopedRootNode = createScopedRootNode(rootNode, includeSubcollections);
+  const scopedNodes = includeSubcollections ? collectSubtree(rootNode) : [rootNode];
+  const collectionIds = scopedNodes.map(node => node.collectionID);
+  const tables = await getTableNames(environment.dbPath);
+  const attachmentRows = await queryAttachments(environment.dbPath, collectionIds, tables);
+  const plan = buildArchivePlan({
+    rootNode: scopedRootNode,
+    attachmentRows,
+    dataDir: environment.dataDir,
+  });
+
+  return {
+    rootNode,
+    plan,
+    summary: {
+      directoryCount: plan.directories.length,
+      fileCount: plan.files.length,
+      skippedCount: plan.skipped.length,
+      totalEntries: plan.totalEntries,
+      includedCollectionCount: scopedNodes.length,
+      includedSubcollectionCount: Math.max(0, scopedNodes.length - 1),
+    },
+  };
+}
+
 function writeArchive({ plan, outputPath, onProgress }) {
   return new Promise((resolve, reject) => {
     const output = fs.createWriteStream(outputPath);
@@ -267,15 +314,14 @@ function writeArchive({ plan, outputPath, onProgress }) {
   });
 }
 
-async function exportCollectionToZip({ environment, libraries, collectionId, outputPath, onProgress }) {
-  const rootNode = findCollectionNode(libraries, collectionId);
-  if (!rootNode) {
-    throw new Error("The selected collection was not found.");
-  }
-
-  const subtree = collectSubtree(rootNode);
-  const collectionIds = subtree.map(node => node.collectionID);
-  const tables = await getTableNames(environment.dbPath);
+async function exportCollectionToZip({
+  environment,
+  libraries,
+  collectionId,
+  outputPath,
+  onProgress,
+  includeSubcollections = true,
+}) {
 
   onProgress({
     phase: "planning",
@@ -283,17 +329,17 @@ async function exportCollectionToZip({ environment, libraries, collectionId, out
     message: "Reading Zotero attachments in read-only mode...",
   });
 
-  const attachmentRows = await queryAttachments(environment.dbPath, collectionIds, tables);
-  const plan = buildArchivePlan({
-    rootNode,
-    attachmentRows,
-    dataDir: environment.dataDir,
+  const { plan, summary } = await planCollectionExport({
+    environment,
+    libraries,
+    collectionId,
+    includeSubcollections,
   });
 
   onProgress({
     phase: "planning",
     percent: 12,
-    message: `Preparing ${plan.directories.length} directories and ${plan.files.length} allowed files...`,
+    message: `Preparing ${summary.directoryCount} directories and ${summary.fileCount} allowed files...`,
     entriesProcessed: 0,
     entriesTotal: plan.totalEntries,
   });
@@ -306,12 +352,15 @@ async function exportCollectionToZip({ environment, libraries, collectionId, out
 
   return {
     outputPath,
-    fileCount: plan.files.length,
-    directoryCount: plan.directories.length,
-    skippedCount: plan.skipped.length,
+    fileCount: summary.fileCount,
+    directoryCount: summary.directoryCount,
+    skippedCount: summary.skippedCount,
+    totalEntries: summary.totalEntries,
+    includedSubcollectionCount: summary.includedSubcollectionCount,
   };
 }
 
 module.exports = {
+  planCollectionExport,
   exportCollectionToZip,
 };

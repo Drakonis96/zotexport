@@ -3,7 +3,7 @@ const path = require("path");
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
-const { exportCollectionToZip } = require("../src/main/exporter");
+const { exportCollectionToZip, planCollectionExport } = require("../src/main/exporter");
 const { createTempDir, listZipEntries, runSqlite } = require("./helpers");
 
 function writeStorageFile(dataDir, key, fileName, contents) {
@@ -14,11 +14,10 @@ function writeStorageFile(dataDir, key, fileName, contents) {
   return filePath;
 }
 
-test("exportCollectionToZip writes the selected subtree and skips unsupported attachments", async t => {
-  const tempDir = createTempDir("zotexport-export-", t);
+function createExportFixture(testContext) {
+  const tempDir = createTempDir("zotexport-export-", testContext);
   const dataDir = path.join(tempDir, "zotero-data");
   const dbPath = path.join(dataDir, "zotero.sqlite");
-  const outputPath = path.join(tempDir, "export.zip");
 
   fs.mkdirSync(path.join(dataDir, "storage"), { recursive: true });
   writeStorageFile(dataDir, "ROOTPDF", "article.pdf", "root pdf");
@@ -75,6 +74,17 @@ test("exportCollectionToZip writes the selected subtree and skips unsupported at
       ],
     },
   ];
+
+  return {
+    dataDir,
+    dbPath,
+    libraries,
+    outputPath: path.join(tempDir, "export.zip"),
+  };
+}
+
+test("exportCollectionToZip writes the selected subtree and skips unsupported attachments", async t => {
+  const { dataDir, dbPath, libraries, outputPath } = createExportFixture(t);
   const progress = [];
 
   const result = await exportCollectionToZip({
@@ -102,4 +112,32 @@ test("exportCollectionToZip writes the selected subtree and skips unsupported at
     "Root Collection/Child Collection/notes.md",
     "Root Collection/article.pdf",
   ]);
+});
+
+test("planCollectionExport excludes child collections when requested", async t => {
+  const { dataDir, dbPath, libraries } = createExportFixture(t);
+
+  const result = await planCollectionExport({
+    environment: {
+      dbPath,
+      dataDir,
+    },
+    libraries,
+    collectionId: 1,
+    includeSubcollections: false,
+  });
+
+  assert.equal(result.summary.directoryCount, 1);
+  assert.equal(result.summary.fileCount, 1);
+  assert.equal(result.summary.skippedCount, 0);
+  assert.equal(result.summary.includedCollectionCount, 1);
+  assert.equal(result.summary.includedSubcollectionCount, 0);
+  assert.deepEqual(
+    result.plan.directories.map(directory => directory.zipPath),
+    ["Root Collection"]
+  );
+  assert.deepEqual(
+    result.plan.files.map(file => file.zipPath),
+    ["Root Collection/article.pdf"]
+  );
 });

@@ -1,6 +1,6 @@
 {
   "name": "zotexport",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "Electron app that exports Zotero collection hierarchies and allowed attachments to ZIP files in read-only mode.",
   "author": "Drakonis96",
@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "test": "node --test test/exporter.test.js test/zotero.test.js",
+    "test": "node --test test/exporter.test.js test/renderer.test.js test/zotero.test.js",
     "build": "electron-builder --mac dmg --win nsis --x64",
     "build:mac": "electron-builder --mac dmg",
     "build:win": "electron-builder --win nsis --x64"

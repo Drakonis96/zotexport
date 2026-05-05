@@ -38,6 +38,16 @@
             </div>
             <div class="selection-badge" id="selection-badge">No selection</div>
           </div>
+          <label class="search-field" for="collection-search">
+            <span class="search-label">Search collections</span>
+            <input
+              id="collection-search"
+              class="search-input"
+              type="search"
+              placeholder="Filter by collection name"
+              autocomplete="off"
+            />
+          </label>
           <div id="tree-root" class="tree-root"></div>
         </section>
 
@@ -47,6 +57,19 @@
               <p class="eyebrow">Export</p>
               <h2 id="selected-title">Select a collection</h2>
             </div>
+          </div>
+
+          <div class="summary-card toggle-card">
+            <label class="toggle-row" for="include-subcollections">
+              <span class="toggle-copy">
+                <strong>Include subcollections</strong>
+                <span class="summary-text">Include child collections and their allowed attachments in the ZIP.</span>
+              </span>
+              <span class="switch">
+                <input id="include-subcollections" class="switch-input" type="checkbox" checked />
+                <span class="switch-track" aria-hidden="true"></span>
+              </span>
+            </label>
           </div>
 
           <div class="summary-card">
@@ -76,6 +99,7 @@
       <button class="tree-node" type="button"></button>
     </template>
 
+    <script src="./collections.js"></script>
     <script src="./app.js"></script>
   </body>
 </html>

@@ -1,8 +1,14 @@
+const { countSubcollections, filterLibraries, flattenCollections } = window.zotExportCollections;
+
 const state = {
   libraries: [],
   environment: null,
   selectedCollectionId: null,
   exporting: false,
+  collectionFilter: "",
+  includeSubcollections: true,
+  exportPreview: null,
+  previewRequestId: 0,
 };
 
 const SOURCE_LABELS = {
@@ -25,9 +31,11 @@ function formatProcessedEntries(progress) {
 }
 
 const elements = {
+  collectionSearchInput: document.getElementById("collection-search"),
   environmentDetails: document.getElementById("environment-details"),
   treeRoot: document.getElementById("tree-root"),
   selectionBadge: document.getElementById("selection-badge"),
+  includeSubcollectionsToggle: document.getElementById("include-subcollections"),
   selectedTitle: document.getElementById("selected-title"),
   selectedDescription: document.getElementById("selected-description"),
   selectedSummary: document.getElementById("selected-summary"),
@@ -40,26 +48,78 @@ const elements = {
   chooseDirButton: document.getElementById("choose-dir-button"),
 };
 
-function flattenCollections() {
-  const entries = new Map();
-  const visit = node => {
-    entries.set(node.collectionID, node);
-    node.children.forEach(visit);
-  };
-
-  state.libraries.forEach(library => library.children.forEach(visit));
-  return entries;
-}
-
 function getSelectedCollection() {
   if (!state.selectedCollectionId) {
     return null;
   }
-  return flattenCollections().get(state.selectedCollectionId) || null;
+  return flattenCollections(state.libraries).get(state.selectedCollectionId) || null;
 }
 
-function countSubcollections(node) {
-  return node.children.reduce((total, child) => total + 1 + countSubcollections(child), 0);
+function getLibraryName(libraryId) {
+  return state.libraries.find(library => library.libraryID === libraryId)?.name || String(libraryId);
+}
+
+function resetExportPreview() {
+  state.previewRequestId += 1;
+  state.exportPreview = null;
+}
+
+function getDirectoryCountPreview(selected) {
+  if (!selected) {
+    return 0;
+  }
+
+  return state.includeSubcollections ? 1 + countSubcollections(selected) : 1;
+}
+
+function appendSummaryRow(label, value) {
+  const row = document.createElement("li");
+  const left = document.createElement("span");
+  left.textContent = label;
+  const right = document.createElement("strong");
+  right.textContent = value;
+  row.append(left, right);
+  elements.selectedSummary.appendChild(row);
+}
+
+async function refreshExportPreview() {
+  const selected = getSelectedCollection();
+  const requestId = ++state.previewRequestId;
+
+  if (!selected) {
+    state.exportPreview = null;
+    renderSelection();
+    return;
+  }
+
+  state.exportPreview = { loading: true };
+  renderSelection();
+
+  try {
+    const preview = await window.zotExportApp.getExportPreview({
+      collectionId: selected.collectionID,
+      includeSubcollections: state.includeSubcollections,
+    });
+
+    if (requestId !== state.previewRequestId) {
+      return;
+    }
+
+    state.exportPreview = preview;
+  }
+  catch (error) {
+    if (requestId !== state.previewRequestId) {
+      return;
+    }
+
+    state.exportPreview = {
+      error: error.message || String(error),
+    };
+  }
+
+  if (requestId === state.previewRequestId) {
+    renderSelection();
+  }
 }
 
 function renderEnvironment() {
@@ -87,6 +147,7 @@ function renderEnvironment() {
 
 function renderTree() {
   elements.treeRoot.innerHTML = "";
+  const filteredLibraries = filterLibraries(state.libraries, state.collectionFilter);
 
   if (!state.libraries.length) {
     const empty = document.createElement("p");
@@ -96,7 +157,15 @@ function renderTree() {
     return;
   }
 
-  for (const library of state.libraries) {
+  if (!filteredLibraries.length) {
+    const empty = document.createElement("p");
+    empty.className = "summary-text";
+    empty.textContent = `No collections match \"${state.collectionFilter.trim()}\".`;
+    elements.treeRoot.appendChild(empty);
+    return;
+  }
+
+  for (const library of filteredLibraries) {
     const section = document.createElement("section");
     section.className = "library-block";
 
@@ -127,8 +196,10 @@ function renderNodes(container, nodes) {
     button.textContent = node.name;
     button.addEventListener("click", () => {
       state.selectedCollectionId = node.collectionID;
+      state.exportPreview = { loading: true };
       renderTree();
       renderSelection();
+      void refreshExportPreview();
     });
     item.appendChild(button);
 
@@ -145,6 +216,7 @@ function renderNodes(container, nodes) {
 
 function renderSelection() {
   const selected = getSelectedCollection();
+  const preview = state.exportPreview;
   elements.selectedSummary.innerHTML = "";
 
   if (!selected) {
@@ -156,29 +228,37 @@ function renderSelection() {
     return;
   }
 
-  const subcollectionCount = countSubcollections(selected);
   elements.selectionBadge.textContent = formatSelectionBadge(1);
   elements.selectedTitle.textContent = selected.name;
   elements.selectedDescription.textContent =
-    "The selected collection will be exported as the root ZIP directory. If it has subcollections, their directories and allowed documents will be included as well.";
+    state.includeSubcollections
+      ? "The selected collection will be exported as the root ZIP directory. Child subcollections and their allowed documents will be included as well."
+      : "Only the selected collection directory and its allowed documents will be included in the ZIP.";
 
-  const summaryRows = [
-    ["ID", String(selected.collectionID)],
-    ["Library", String(selected.libraryID)],
-    ["Included subcollections", String(subcollectionCount)],
-  ];
+  appendSummaryRow("Library", getLibraryName(selected.libraryID));
+  appendSummaryRow(
+    "Included subcollections",
+    String(preview?.includedSubcollectionCount ?? (state.includeSubcollections ? countSubcollections(selected) : 0))
+  );
+  appendSummaryRow(
+    "Directories",
+    String(preview?.directoryCount ?? getDirectoryCountPreview(selected))
+  );
 
-  for (const [label, value] of summaryRows) {
-    const row = document.createElement("li");
-    const left = document.createElement("span");
-    left.textContent = label;
-    const right = document.createElement("strong");
-    right.textContent = value;
-    row.append(left, right);
-    elements.selectedSummary.appendChild(row);
+  if (preview?.error) {
+    appendSummaryRow("Files", "Unavailable");
+    appendSummaryRow("Total ZIP entries", "Unavailable");
+    appendSummaryRow("Preview", preview.error);
+  }
+  else {
+    appendSummaryRow("Files", preview?.loading ? "Calculating..." : String(preview?.fileCount ?? 0));
+    appendSummaryRow(
+      "Total ZIP entries",
+      preview?.loading ? "Calculating..." : String(preview?.totalEntries ?? 0)
+    );
   }
 
-  elements.exportButton.disabled = state.exporting;
+  elements.exportButton.disabled = state.exporting || Boolean(preview?.loading) || Boolean(preview?.error);
 }
 
 function updateProgress(progress) {
@@ -210,6 +290,7 @@ async function loadState() {
     const result = await window.zotExportApp.getState();
     state.environment = result.environment;
     state.libraries = result.libraries;
+    resetExportPreview();
 
     if (!getSelectedCollection()) {
       state.selectedCollectionId = null;
@@ -219,6 +300,10 @@ async function loadState() {
     renderTree();
     renderSelection();
     setIdleProgress();
+
+    if (state.selectedCollectionId) {
+      void refreshExportPreview();
+    }
   }
   catch (error) {
     setIdleProgress(error.message || String(error));
@@ -235,6 +320,7 @@ async function chooseDataDir() {
     state.environment = result.state.environment;
     state.libraries = result.state.libraries;
     state.selectedCollectionId = null;
+    resetExportPreview();
     renderEnvironment();
     renderTree();
     renderSelection();
@@ -247,19 +333,22 @@ async function chooseDataDir() {
 
 async function exportSelectedCollection() {
   const selected = getSelectedCollection();
-  if (!selected || state.exporting) {
+  if (!selected || state.exporting || state.exportPreview?.loading || state.exportPreview?.error) {
     return;
   }
 
   state.exporting = true;
-  elements.exportButton.disabled = true;
+  renderSelection();
   updateProgress({
     percent: 1,
     message: "Opening save dialog...",
   });
 
   try {
-    const result = await window.zotExportApp.exportCollection(selected.collectionID);
+    const result = await window.zotExportApp.exportCollection({
+      collectionId: selected.collectionID,
+      includeSubcollections: state.includeSubcollections,
+    });
     if (result.canceled) {
       setIdleProgress("Export canceled.");
       return;
@@ -280,6 +369,19 @@ async function exportSelectedCollection() {
 elements.refreshButton.addEventListener("click", loadState);
 elements.chooseDirButton.addEventListener("click", chooseDataDir);
 elements.exportButton.addEventListener("click", exportSelectedCollection);
+elements.collectionSearchInput.addEventListener("input", event => {
+  state.collectionFilter = event.target.value || "";
+  renderTree();
+});
+elements.includeSubcollectionsToggle.addEventListener("change", event => {
+  state.includeSubcollections = event.target.checked;
+  if (state.selectedCollectionId) {
+    void refreshExportPreview();
+    return;
+  }
+
+  renderSelection();
+});
 
 window.zotExportApp.onExportProgress(updateProgress);
 

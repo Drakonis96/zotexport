@@ -9,9 +9,11 @@
 - Detects the Zotero profile and local data directory automatically.
 - Reads `zotero.sqlite` with a bundled SQLite runtime, so the packaged app does not depend on a system `sqlite3` installation.
 - Rebuilds the full library, collection, and subcollection tree.
-- Lets you export one selected collection or subcollection together with all of its descendants.
+- Lets you search and filter the collection tree before selecting what to export.
+- Lets you export one selected collection or subcollection either on its own or together with all of its descendants.
 - Creates ZIP folders only for collections and subcollections.
 - Includes only `.pdf`, `.epub`, `.doc`, `.docx`, `.md`, and `.markdown` attachments.
+- Shows the number of directories and files that will be included in the ZIP before export.
 - Shows live progress and a completion summary.
 
 ## Safety model
@@ -59,11 +61,14 @@ When the app starts or refreshes, it looks for the Zotero data directory in this
 1. Launch `zotexport`.
 2. Wait for the detected libraries and collections to load.
 3. If the detected source is wrong, click `Choose data directory` and select the folder that contains `zotero.sqlite` and `storage/`.
-4. Select a collection or subcollection in the tree.
-5. Click `Export ZIP`.
-6. Choose the output path.
-7. Wait until the progress bar reaches 100%.
-8. Open the generated ZIP file.
+5. Use the collection search field to filter the tree if needed.
+6. Select a collection or subcollection in the tree.
+7. Decide whether to keep `Include subcollections` enabled.
+8. Review the directory and file counts that will be included in the ZIP.
+9. Click `Export ZIP`.
+10. Choose the output path.
+11. Wait until the progress bar reaches 100%.
+12. Open the generated ZIP file.
 
 ## Development commands
 
