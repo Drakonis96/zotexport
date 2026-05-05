@@ -78,6 +78,14 @@ body {
   font-size: clamp(2rem, 3vw, 2.7rem);
 }
 
+.brand-logo {
+  display: block;
+  width: clamp(88px, 11vw, 132px);
+  height: auto;
+  margin: 0 0 16px;
+  filter: drop-shadow(0 18px 28px rgba(31, 26, 23, 0.16));
+}
+
 .lede,
 .summary-text,
 .progress-meta {

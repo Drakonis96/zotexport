@@ -1,8 +1,9 @@
 {
   "name": "zotexport",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Electron app that exports Zotero collection hierarchies and allowed attachments to ZIP files in read-only mode.",
+  "author": "Drakonis96",
   "main": "src/main/index.js",
   "scripts": {
     "start": "electron .",
@@ -17,30 +18,42 @@
     "sql.js": "^1.13.0"
   },
   "devDependencies": {
-    "electron": "^35.1.5",
-    "electron-builder": "^24.13.3"
+    "electron": "^41.5.0",
+    "electron-builder": "^26.8.1"
   },
   "build": {
     "appId": "com.drakonis96.zotexport",
     "productName": "zotexport",
     "asar": true,
     "directories": {
-      "output": "dist"
+      "output": "dist",
+      "buildResources": "build"
     },
     "files": [
       "src/**/*",
+      "public/**/*",
       "package.json"
     ],
     "mac": {
+      "icon": "build/icon.icns",
       "target": [
         "dmg"
       ],
       "category": "public.app-category.productivity"
     },
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         "nsis"
       ]
+    },
+    "dmg": {
+      "icon": "build/icon.icns"
+    },
+    "nsis": {
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerHeaderIcon": "build/icon.ico"
     }
   }
 }

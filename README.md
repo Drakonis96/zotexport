@@ -1,5 +1,7 @@
 # zotexport
 
+![zotexport logo](public/logo.png)
+
 `zotexport` is an Electron desktop app that reads a local Zotero data directory in read-only mode and exports a selected collection subtree to a ZIP file.
 
 ## Features

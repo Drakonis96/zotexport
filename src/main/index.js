@@ -10,6 +10,7 @@ const { exportCollectionToZip } = require("./exporter");
 
 let mainWindow = null;
 let manualDataDir = null;
+const appIconPath = path.join(__dirname, "../../public/logo.png");
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -18,6 +19,7 @@ function createWindow() {
     minWidth: 1080,
     minHeight: 720,
     title: "zotexport",
+    icon: appIconPath,
     backgroundColor: "#f5f1e8",
     webPreferences: {
       contextIsolation: true,
@@ -49,6 +51,10 @@ async function buildAppState() {
 }
 
 app.whenReady().then(() => {
+  if (process.platform === "darwin" && app.dock) {
+    app.dock.setIcon(appIconPath);
+  }
+
   createWindow();
 
   app.on("activate", () => {
